@@ -1,0 +1,123 @@
+omega-agent-mesh License v1.0
+Copyright (c) 2026 Fernando Jorge Torres Sales
+
+THIS IS A SOURCE-AVAILABLE LICENSE, NOT AN OPEN-SOURCE LICENSE.
+This software is NOT licensed under any OSI-approved open-source license.
+
+---------------------------------------------------------------
+1. DEFINITIONS
+---------------------------------------------------------------
+
+"The Software" means the omega-agent-mesh framework: the contents of
+this repository, including all code, prompts, configuration files,
+documentation, and any other assets that make up omega-agent-mesh
+itself.
+
+"Output" means any system, agent team, skill, prompt, pipeline,
+artifact, or other work product that You create BY USING The Software
+as a design, generation, or execution tool.
+
+"You" (or "Your") means the individual or legal entity exercising
+rights under this license.
+
+"Commercial Use" means any use primarily intended for or directed
+toward commercial advantage or monetary compensation, including
+without limitation: selling, licensing, renting, hosting as a paid
+service, or integrating into a paid product or service.
+
+"Licensor" means Fernando Jorge Torres Sales, contact: ferjssilva@gmail.com.
+"Omega Coders" is a project/brand name used by Licensor and
+referenced in the attribution requirement below.
+
+---------------------------------------------------------------
+2. GRANT OF RIGHTS
+---------------------------------------------------------------
+
+Subject to the terms below, Licensor grants You a worldwide,
+royalty-free, non-exclusive, non-transferable license to:
+
+  (a) Use The Software for personal, educational, research, or
+      internal-business purposes.
+
+  (b) Modify The Software for Your own use, including private forks.
+
+  (c) Produce Output using The Software.
+
+  (d) Use, distribute, sell, sublicense, or otherwise commercialize
+      Output, PROVIDED that each commercialized or publicly distributed
+      Output includes a clearly visible attribution notice such as:
+
+          "Generated with omega-agent-mesh by Omega Coders
+           (https://github.com/omega-coders/omega-agent-mesh)"
+
+      The attribution must appear in at least one of: the Output's
+      README or equivalent documentation, an "About" or credits screen,
+      or another place where end users can reasonably discover it.
+
+---------------------------------------------------------------
+3. RESTRICTIONS
+---------------------------------------------------------------
+
+You may NOT, without prior written permission from Licensor
+(obtained by emailing ferjssilva@gmail.com):
+
+  (a) Sell, license, rent, sublicense, or otherwise commercialize
+      The Software itself, whether as-is, modified, rebranded,
+      bundled, or as part of a paid product or paid service.
+
+  (b) Publish a public fork, mirror, or derivative work of The
+      Software (including on GitHub, GitLab, or any public source
+      hosting platform), except for private forks used only by You.
+
+  (c) Offer The Software as a hosted service (SaaS, API, or similar).
+
+  (d) Remove, obscure, or alter this license, the copyright notice,
+      or the attribution requirement in clause 2(d).
+
+---------------------------------------------------------------
+4. COMMERCIAL AND PUBLIC-FORK PERMISSION
+---------------------------------------------------------------
+
+If You wish to commercialize The Software itself, or to publish a
+public fork or derivative work, You must first obtain written
+permission from Licensor by emailing:
+
+    ferjssilva@gmail.com
+
+Licensor may grant, deny, or negotiate terms (including fees,
+royalties, or attribution) at Licensor's sole discretion.
+
+---------------------------------------------------------------
+5. CONTRIBUTIONS
+---------------------------------------------------------------
+
+By submitting any contribution to this repository (pull request,
+patch, issue containing code, etc.), You agree that Your contribution
+is licensed to Licensor under the same terms as this license, and
+that Licensor may relicense Your contribution at Licensor's sole
+discretion.
+
+---------------------------------------------------------------
+6. NO WARRANTY
+---------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT. IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT,
+OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---------------------------------------------------------------
+7. TERMINATION
+---------------------------------------------------------------
+
+This license automatically terminates if You breach any of its
+terms. Upon termination You must stop using and distributing
+The Software, and destroy all copies in Your possession or control.
+Sections 5, 6, and 7 survive termination.
+
+---------------------------------------------------------------
+
+For questions or permission requests: ferjssilva@gmail.com

@@ -1,0 +1,22 @@
+{
+  "name": "omega-agent-mesh",
+  "version": "0.1.0",
+  "description": "GraphQL agent mesh: declarative handoff between headless Claude agents, with a shared workspace whose .md artifacts become inferred GraphQL query types.",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/index.js",
+    "start": "node --env-file-if-exists=.env src/index.js"
+  },
+  "engines": {
+    "node": ">=20.18.0"
+  },
+  "dependencies": {
+    "@apollo/server": "^5.0.0",
+    "chokidar": "^4.0.0",
+    "graphql": "^16.9.0",
+    "graphql-tag": "^2.12.6",
+    "gray-matter": "^4.0.3",
+    "p-queue": "^9.2.0"
+  }
+}

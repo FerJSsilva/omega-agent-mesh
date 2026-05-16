@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.local
+*.log
+logs/
+jobs.json
+
+# Artefatos produzidos pelos agents em runtime (a pasta fica versionada via .gitkeep).
+workspace/*
+!workspace/.gitkeep
+
+# Skills sincronizadas pros homes em runtime — source-of-truth está em skills/.
+homes/*/.claude/skills/
+
+.claude/settings.local.json
+.DS_Store

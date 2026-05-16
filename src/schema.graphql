@@ -1,0 +1,159 @@
+"""
+omega-agent-mesh — esqueleto do schema.
+
+Este arquivo declara apenas o núcleo estável (Query base, tipos Job/Agent/
+Skill/Handoff). O resto do schema é montado em runtime:
+
+  - Mutations são geradas a partir de handoffs/*.md       (ver handoffs.js)
+  - Query types do workspace, a partir de workspace/**/*.md (ver workspace.js)
+
+Agents e Skills são descobertos do filesystem (ver agents.js, skills.js).
+"""
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  "Health check. Retorna 'pong'."
+  ping: String!
+
+  "Lista todos os agents registrados no mesh."
+  agents: [Agent!]!
+
+  "Retorna um agent pelo nome, ou null se não estiver registrado."
+  agent(name: String!): Agent
+
+  "Lista todas as skills registradas no mesh."
+  skills: [Skill!]!
+
+  "Retorna um job pelo id."
+  job(id: ID!): Job
+
+  "Lista todos os jobs (mais recente primeiro)."
+  jobs: [Job!]!
+
+  "Lista todos os handoffs registrados (rotas de mutation declaradas)."
+  handoffs: [Handoff!]!
+}
+
+type Mutation {
+  "Placeholder. As mutations reais são geradas pelos handoffs em runtime."
+  _placeholder: Boolean
+}
+
+"Estado de um job spawnado por uma mutation."
+enum JobStatus {
+  "Spawn ainda em execução."
+  PENDENTE
+
+  "Spawn terminou com exit code 0."
+  PRONTO
+
+  "Spawn terminou com exit code != 0."
+  ERRO
+}
+
+"""
+Job representa uma invocação de agent disparada por uma mutation.
+O id é um UUID gerado pelo mesh. Persistido em jobs.json — sobrevive a restart.
+"""
+type Job {
+  id: ID!
+  status: JobStatus!
+  caller: String!
+  callee: String!
+  startedAt: String!
+  endedAt: String
+  durationMs: Int
+  exitCode: Int
+}
+
+"""
+Agent registrado no mesh. Mistura o frontmatter da spec Claude Code
+(https://code.claude.com/docs/en/sub-agents) com metadata do próprio mesh
+(workdir, agentDefinition, delegatesTo).
+
+Read-only: o que estiver no .md aparece aqui. Quando o frontmatter omite um
+campo, retorna o default documentado pela spec — ou null quando a ausência
+é o próprio default.
+"""
+type Agent {
+  # === Metadata do mesh (extensão nossa) ===
+
+  "Diretório onde o agent é spawnado (cwd)."
+  workdir: String!
+
+  "Caminho absoluto do .md que define o agent."
+  agentDefinition: String!
+
+  "Outros agents que este pode invocar via mutations."
+  delegatesTo: [Agent!]!
+
+  # === Frontmatter oficial do Claude Code ===
+
+  "Identificador único (lowercase + hyphens)."
+  name: String!
+
+  "Quando o Claude deve delegar para este subagent."
+  description: String!
+
+  "Tools que o subagent pode usar. null = herda todas do parent."
+  tools: [String!]
+
+  "Tools removidas da lista herdada/declarada."
+  disallowedTools: [String!]!
+
+  "Skills injetadas no contexto na inicialização."
+  skills: [String!]!
+
+  "Modelo (sonnet/opus/haiku/ID completo/inherit). Default: 'inherit'."
+  model: String!
+
+  "Permission mode. null se ausente."
+  permissionMode: String
+
+  "Effort level (low/medium/high/xhigh/max). null se ausente."
+  effort: String
+
+  "Se sempre roda em background. Default: false."
+  background: Boolean!
+
+  "Limite de turns agênticos antes do agent parar. null se ausente."
+  maxTurns: Int
+
+  "Memory scope persistente (user/project/local). null se ausente."
+  memory: String
+
+  "Isolation mode (worktree). null se ausente."
+  isolation: String
+
+  "Cor de display. null se ausente."
+  color: String
+
+  "Prompt inicial auto-submetido como primeiro turn. null se ausente."
+  initialPrompt: String
+}
+
+"Skill registrada em skills/<name>/SKILL.md no mesh."
+type Skill {
+  name: String!
+  description: String!
+  version: String
+}
+
+"""
+Handoff registrado em handoffs/*.md. Cada handoff vira uma mutation
+auto-gerada no namespace do agent destino.
+
+- Sem `trigger`: mutation manual (o cliente chama via GraphQL).
+- Com `trigger`: o watcher dispara automaticamente quando um arquivo
+  com `type` correspondente aparece no workspace.
+"""
+type Handoff {
+  type: String!
+  to: String!
+  action: String!
+  arg: String!
+  file: String!
+}

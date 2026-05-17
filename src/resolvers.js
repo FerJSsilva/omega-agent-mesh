@@ -14,8 +14,6 @@ export const resolvers = {
     skills: () => listSkills(),
     job: (_parent, { id }) => getJob(id),
     jobs: () => listJobs().sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
-    // Substituído pelo schema builder após os handoffs serem carregados.
-    handoffs: () => [],
   },
 
   Agent: {

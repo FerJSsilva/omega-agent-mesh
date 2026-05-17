@@ -33,14 +33,7 @@ export function buildSchema() {
     Query: {
       ...staticResolvers.Query,
       ...workspace.resolvers.Query,
-      handoffs: () =>
-        handoffs.handoffs.map((h) => ({
-          type: h.type,
-          to: h.to,
-          action: h.action,
-          arg: h.arg,
-          file: h.file,
-        })),
+      ...handoffs.resolvers.Query,
     },
     Mutation: {
       ...staticResolvers.Mutation,

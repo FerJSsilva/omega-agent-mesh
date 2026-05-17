@@ -80,10 +80,23 @@ function generateSDL(handoffs) {
   return lines.join('\n');
 }
 
-// Constrói o resolver map: Mutation.<ns> → objeto de ações, e cada ação spawna.
+// Constrói o resolver map: Query.handoffs (catálogo das rotas), Mutation.<ns>
+// → objeto de ações, e cada ação spawna o agent destino.
 function buildResolvers(handoffs) {
   const byNamespace = groupByNamespace(handoffs);
-  const resolvers = { Mutation: {} };
+  const resolvers = {
+    Query: {
+      handoffs: () =>
+        handoffs.map((h) => ({
+          type: h.type,
+          to: h.to,
+          action: h.action,
+          arg: h.arg,
+          file: h.file,
+        })),
+    },
+    Mutation: {},
+  };
 
   for (const [ns, actions] of byNamespace) {
     // Mutation.<ns> só devolve um objeto vazio — as ações resolvem no type filho.
@@ -133,11 +146,13 @@ function groupByNamespace(handoffs) {
 }
 
 // Carrega tudo: as rotas, o SDL gerado e o resolver map.
+// buildResolvers funciona com lista vazia (Query.handoffs → []), então é sempre
+// chamado; só o SDL precisa do guard, pois `extend type` vazio quebra o parser.
 export function loadHandoffsModule() {
   const handoffs = loadHandoffs();
   return {
     handoffs,
     sdl: handoffs.length > 0 ? generateSDL(handoffs) : '',
-    resolvers: handoffs.length > 0 ? buildResolvers(handoffs) : { Mutation: {} },
+    resolvers: buildResolvers(handoffs),
   };
 }

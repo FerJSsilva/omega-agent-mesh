@@ -7,7 +7,7 @@ arg: ideiaPath
 argType: String
 filename: texto-{slug}.md
 
-status:
+status: rascunho
 ideia:
 palavras:
 created:

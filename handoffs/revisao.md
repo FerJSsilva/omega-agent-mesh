@@ -7,7 +7,7 @@ arg: textoPath
 argType: String
 filename: revisao-{slug}.md
 
-status:
+status: revisado
 texto:
 mudancas:
 created:

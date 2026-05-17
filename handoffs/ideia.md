@@ -6,7 +6,7 @@ arg: tema
 argType: String
 filename: ideia-{slug}.md
 
-status:
+status: rascunho
 tema:
 created:
 lastEdited:

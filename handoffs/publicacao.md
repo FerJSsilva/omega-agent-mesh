@@ -7,7 +7,7 @@ arg: revisaoPath
 argType: String
 filename: publicacao-{slug}.md
 
-status:
+status: publicado
 revisao:
 titulo:
 created:

@@ -34,7 +34,7 @@ const ROUTING_KEYS = ['to', 'action', 'arg', 'argType', 'trigger', 'filename'];
 
 // Converte um handoff bruto no template de artefato visto pelo agent: o corpo
 // intacto + um frontmatter sem campos de roteamento, com `id` (vazio) no topo
-// para o agent preencher conforme a skill workspace-protocol.
+// para o agent preencher.
 export function artifactTemplate(data, content) {
   const artifact = { id: data.id ?? '', type: data.type };
   for (const [key, value] of Object.entries(data)) {
@@ -42,6 +42,18 @@ export function artifactTemplate(data, content) {
     artifact[key] = value ?? ''; // campos a preencher entram vazios, não como null
   }
   return matter.stringify(content, artifact);
+}
+
+// Instrução de nomeação do arquivo do artefato. O nome do arquivo não é
+// conteúdo do artefato — é uma ordem para o agent, então vai no prompt e não
+// no template. O prefixo `<type>-` é fixo para o watcher rotear corretamente.
+export function namingInstruction(type) {
+  return (
+    `Salve o artefato em workspace/ com o nome \`${type}-<slug>.md\`, onde ` +
+    `<slug> é um identificador curto em kebab-case derivado do tema/título. ` +
+    `O prefixo do nome DEVE ser exatamente \`${type}-\` — não use o nome do ` +
+    `arquivo recebido como entrada.`
+  );
 }
 
 // Lê handoffs/*.md e devolve as rotas válidas (com to/action/arg).
@@ -142,6 +154,9 @@ function buildResolvers(handoffs) {
             '',
             outputTemplate.template,
           );
+        }
+        if (a.type) {
+          promptParts.push('', namingInstruction(a.type));
         }
 
         return spawnAgent(a.to, promptParts.join('\n'), { caller: 'mesh' });

@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { config } from './config.js';
 import { spawnAgent } from './spawn.js';
-import { artifactTemplate } from './handoffs.js';
+import { artifactTemplate, namingInstruction } from './handoffs.js';
 
 const WORKSPACE = config.paths.workspace;
 const HANDOFFS_DIR = config.paths.handoffs;
@@ -32,6 +32,7 @@ function loadTriggers() {
         to: data.to,
         arg: data.arg,
         action: data.action,
+        type: data.type, // tipo do artefato que esta rota produz
         // Só a parte de artefato vai no prompt — sem o frontmatter de roteamento.
         template: artifactTemplate(data, content),
       });
@@ -74,20 +75,21 @@ export function startWatcher() {
       const normalizedPath = filePath.replace(/\\/g, '/');
       console.log(`[watcher] type=${data.type} → ${route.to} (${route.action})`);
 
-      spawnAgent(
-        route.to,
-        [
-          'Você foi acionado pelo mesh.',
-          `${route.arg}: ${normalizedPath}`,
-          `Workspace: ${WORKSPACE}`,
-          '',
-          'Leia o arquivo acima e produza seu artefato no workspace.',
-          'Use este template como referência de estrutura e frontmatter:',
-          '',
-          route.template,
-        ].join('\n'),
-        { caller: 'watcher' },
-      );
+      const promptLines = [
+        'Você foi acionado pelo mesh.',
+        `${route.arg}: ${normalizedPath}`,
+        `Workspace: ${WORKSPACE}`,
+        '',
+        'Leia o arquivo acima e produza seu artefato no workspace.',
+        'Use este template como referência de estrutura e frontmatter:',
+        '',
+        route.template,
+      ];
+      if (route.type) {
+        promptLines.push('', namingInstruction(route.type));
+      }
+
+      spawnAgent(route.to, promptLines.join('\n'), { caller: 'watcher' });
     } catch (err) {
       console.error(`[watcher] erro ao processar ${filePath}:`, err.message);
     }

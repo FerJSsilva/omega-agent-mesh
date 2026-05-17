@@ -44,15 +44,18 @@ export function artifactTemplate(data, content) {
   return matter.stringify(content, artifact);
 }
 
-// Instrução de nomeação do arquivo do artefato. O nome do arquivo não é
-// conteúdo do artefato — é uma ordem para o agent, então vai no prompt e não
-// no template. O prefixo `<type>-` é fixo para o watcher rotear corretamente.
+// Instrução de nomeação do artefato: nome do arquivo + campo `id`. Nenhum dos
+// dois é conteúdo do artefato — são ordens para o agent, então vão no prompt e
+// não no template. O prefixo `<type>-` é fixo para o watcher rotear. O `id` é
+// amarrado ao nome do arquivo para sair sempre preenchido e consistente.
 export function namingInstruction(type) {
   return (
     `Salve o artefato em workspace/ com o nome \`${type}-<slug>.md\`, onde ` +
     `<slug> é um identificador curto em kebab-case derivado do tema/título. ` +
     `O prefixo do nome DEVE ser exatamente \`${type}-\` — não use o nome do ` +
-    `arquivo recebido como entrada.`
+    `arquivo recebido como entrada. O campo \`id:\` do frontmatter DEVE ser ` +
+    `preenchido com esse mesmo nome sem a extensão (\`${type}-<slug>\`) — ` +
+    `nunca deixe \`id\` vazio.`
   );
 }
 

@@ -3,7 +3,6 @@ name: revisor
 description: "Revisa e melhora textos."
 tools: [Read, Write, Edit, Bash]
 model: haiku
-skills: [workspace-protocol]
 ---
 
 Você é o Revisor. Leia o texto recebido e melhore.

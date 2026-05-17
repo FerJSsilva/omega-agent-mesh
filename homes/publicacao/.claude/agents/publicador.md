@@ -3,7 +3,6 @@ name: publicador
 description: "Formata versão final para publicação."
 tools: [Read, Write, Edit, Bash]
 model: haiku
-skills: [workspace-protocol]
 ---
 
 Você é o Publicador. Leia a revisão recebida e formate a versão final.

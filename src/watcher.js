@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { config } from './config.js';
 import { spawnAgent } from './spawn.js';
+import { artifactTemplate } from './handoffs.js';
 
 const WORKSPACE = config.paths.workspace;
 const HANDOFFS_DIR = config.paths.handoffs;
@@ -25,9 +26,15 @@ function loadTriggers() {
 
   for (const file of readdirSync(HANDOFFS_DIR).filter((f) => f.endsWith('.md'))) {
     const raw = readFileSync(join(HANDOFFS_DIR, file), 'utf8');
-    const { data } = matter(raw);
+    const { data, content } = matter(raw);
     if (data.trigger && data.to && data.arg) {
-      triggers.set(data.trigger, { to: data.to, arg: data.arg, action: data.action, template: raw });
+      triggers.set(data.trigger, {
+        to: data.to,
+        arg: data.arg,
+        action: data.action,
+        // Só a parte de artefato vai no prompt — sem o frontmatter de roteamento.
+        template: artifactTemplate(data, content),
+      });
     }
   }
   return triggers;

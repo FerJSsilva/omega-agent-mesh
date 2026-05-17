@@ -28,6 +28,22 @@ function capitalize(s) {
   return s.replace(/(^|-)(\w)/g, (_, _sep, c) => c.toUpperCase());
 }
 
+// Campos de roteamento do handoff — consumidos pelo mesh, não pertencem ao
+// artefato que o agent produz. São removidos do template antes de ir no prompt.
+const ROUTING_KEYS = ['to', 'action', 'arg', 'argType', 'trigger', 'filename'];
+
+// Converte um handoff bruto no template de artefato visto pelo agent: o corpo
+// intacto + um frontmatter sem campos de roteamento, com `id` (vazio) no topo
+// para o agent preencher conforme a skill workspace-protocol.
+export function artifactTemplate(data, content) {
+  const artifact = { id: data.id ?? '', type: data.type };
+  for (const [key, value] of Object.entries(data)) {
+    if (key === 'id' || key === 'type' || ROUTING_KEYS.includes(key)) continue;
+    artifact[key] = value ?? ''; // campos a preencher entram vazios, não como null
+  }
+  return matter.stringify(content, artifact);
+}
+
 // Lê handoffs/*.md e devolve as rotas válidas (com to/action/arg).
 function loadHandoffs() {
   if (!existsSync(HANDOFFS_DIR)) return [];
@@ -35,7 +51,7 @@ function loadHandoffs() {
   const handoffs = [];
   for (const file of readdirSync(HANDOFFS_DIR).filter((f) => f.endsWith('.md'))) {
     const raw = readFileSync(join(HANDOFFS_DIR, file), 'utf8');
-    const { data } = matter(raw);
+    const { data, content } = matter(raw);
 
     if (!data.to || !data.action || !data.arg) {
       console.warn(`[handoffs] ${file}: falta to/action/arg — pulando`);
@@ -51,7 +67,8 @@ function loadHandoffs() {
       action: data.action,
       arg: data.arg,
       argType: data.argType || 'String',
-      template: raw, // template completo (frontmatter + corpo) vai no prompt
+      // Só a parte de artefato vai no prompt — sem o frontmatter de roteamento.
+      template: artifactTemplate(data, content),
     });
   }
   return handoffs;

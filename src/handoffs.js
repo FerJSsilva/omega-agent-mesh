@@ -56,6 +56,25 @@ export function namingInstruction(type) {
   );
 }
 
+// Instrução de preenchimento da foreign key. Quando o handoff recebe um caminho
+// de arquivo (`arg` terminado em "Path") e o template do artefato tem um campo
+// de FK com o nome correspondente (ideiaPath → ideia), manda o agent copiar o
+// `id` lido do arquivo recebido — não o tema, o título nem o caminho. Sem isso,
+// o agent tende a preencher a FK com prosa e a relação GraphQL não liga.
+// Devolve '' quando não há FK a preencher.
+export function fkInstruction(arg, template) {
+  if (!arg || !arg.endsWith('Path')) return '';
+  const fkField = arg.slice(0, -'Path'.length);
+  const { data } = matter(template);
+  if (!(fkField in data)) return '';
+  return (
+    `O campo \`${fkField}:\` do seu artefato é uma referência. Abra o arquivo ` +
+    `recebido em ${arg}, leia o campo \`id:\` do frontmatter dele, e copie ` +
+    `esse valor exato para \`${fkField}:\`. Não use o tema, o título nem o ` +
+    `caminho do arquivo — apenas o \`id\`.`
+  );
+}
+
 // Lê handoffs/*.md e devolve as rotas válidas (com to/action/arg).
 function loadHandoffs() {
   if (!existsSync(HANDOFFS_DIR)) return [];
@@ -157,6 +176,10 @@ function buildResolvers(handoffs) {
         }
         if (a.type) {
           promptParts.push('', namingInstruction(a.type));
+        }
+        if (outputTemplate) {
+          const fk = fkInstruction(a.arg, outputTemplate.template);
+          if (fk) promptParts.push('', fk);
         }
 
         return spawnAgent(a.to, promptParts.join('\n'), { caller: 'mesh' });

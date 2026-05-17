@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { config } from './config.js';
 import { spawnAgent } from './spawn.js';
-import { artifactTemplate, namingInstruction } from './handoffs.js';
+import { artifactTemplate, namingInstruction, fkInstruction } from './handoffs.js';
 
 const WORKSPACE = config.paths.workspace;
 const HANDOFFS_DIR = config.paths.handoffs;
@@ -88,6 +88,8 @@ export function startWatcher() {
       if (route.type) {
         promptLines.push('', namingInstruction(route.type));
       }
+      const fk = fkInstruction(route.arg, route.template);
+      if (fk) promptLines.push('', fk);
 
       spawnAgent(route.to, promptLines.join('\n'), { caller: 'watcher' });
     } catch (err) {

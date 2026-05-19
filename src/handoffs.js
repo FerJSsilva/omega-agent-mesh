@@ -28,6 +28,13 @@ function capitalize(s) {
   return s.replace(/(^|-)(\w)/g, (_, _sep, c) => c.toUpperCase());
 }
 
+// Nome de campo GraphQL a partir de um namespace. Nomes de campo não aceitam
+// hífen — 'advogado-contrato' viraria um campo inválido em `extend Mutation`.
+// Converte para camelCase: 'advogado-contrato' → 'advogadoContrato'.
+function fieldName(s) {
+  return s.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+}
+
 // Campos de roteamento do handoff — consumidos pelo mesh, não pertencem ao
 // artefato que o agent produz. São removidos do template antes de ir no prompt.
 const ROUTING_KEYS = ['to', 'action', 'arg', 'argType', 'trigger', 'filename'];
@@ -137,7 +144,7 @@ function generateSDL(handoffs) {
 
   lines.push('extend type Mutation {');
   for (const ns of byNamespace.keys()) {
-    lines.push(`  ${ns}: ${capitalize(ns)}Actions!`);
+    lines.push(`  ${fieldName(ns)}: ${capitalize(ns)}Actions!`);
   }
   lines.push('}');
 
@@ -164,7 +171,8 @@ function buildResolvers(handoffs) {
 
   for (const [ns, actions] of byNamespace) {
     // Mutation.<ns> só devolve um objeto vazio — as ações resolvem no type filho.
-    resolvers.Mutation[ns] = () => ({});
+    // O campo usa o mesmo nome camelCase do SDL (ver fieldName).
+    resolvers.Mutation[fieldName(ns)] = () => ({});
 
     const typeName = `${capitalize(ns)}Actions`;
     resolvers[typeName] = {};

@@ -1,10 +1,11 @@
 # Agency Example — Design
 
-Doc de trabalho. O exemplo da agência substitui a pipeline linear
+O exemplo da agência substitui a pipeline linear
 `ideia → texto → revisao → publicacao` por um mesh de uma agência de
 desenvolvimento com várias equipes.
 
-Estado: **modelo de dados travado**, roteamento em aberto.
+Estado: **implementado** — modelo de dados e roteamento definidos; os
+`handoffs/` e `homes/` da agência estão no repositório.
 
 ## Equipes (v1)
 
@@ -80,14 +81,33 @@ agent de atendimento) chama manualmente a mutation de cada equipe desejada.
 Sem fan-out automático via watcher — três equipes não poderiam `trigger:` no
 mesmo type `briefing` (o watcher faz 1 type → 1 handoff).
 
-## Roteamento — EM ABERTO
+## Roteamento — DECIDIDO
 
-Questões a resolver antes de criar `handoffs/` e `homes/`:
+1. **`cliente`, `brand` e `briefing` são seed manual.** Um humano escreve os
+   `.md` no workspace — não há handoffs de criação. São as raízes do grafo;
+   ninguém os produz a partir de outro artefato.
+2. **Handoff multi-campo via caminho de arquivo.** Cada handoff de equipe
+   recebe um `arg` do tipo `briefingPath` — o caminho do `.md` de briefing.
+   O agent abre o arquivo e lê `cliente`/`brand`/`titulo` de lá. O handoff
+   continua com um `arg` só; a `fkInstruction` casa `briefingPath` → o campo
+   FK `briefing` do template automaticamente.
+3. **Um handoff por entregável.** Branding 1 (`gerarIdentidade`), Conteúdo 1
+   (`gerarArtigo`), Jurídica 2 (`gerarPolitica`, `gerarContrato`). 4 handoffs,
+   todos manuais — nenhum tem `trigger:`.
+4. **Sem home `atendimento`.** O cliente (ou um humano) chama as mutations
+   direto; não há agent orquestrador na v1.
 
-1. **Como `cliente` e `brand` passam a existir?** Handoffs de criação
-   (`criarCliente`, `criarBrand`) ou seed manual no workspace?
-2. **Como o `briefing` é criado?** Tensão: um handoff tem **um arg só**, mas
-   o briefing quer `cliente` (sempre) + `brand` (às vezes).
-3. **Quantos handoffs por equipe?** Jurídica tem 2 entregáveis (politica,
-   contrato); Branding e Conteúdo têm 1 cada — por enquanto.
-4. **Precisa de um home `atendimento`** para orquestrar / criar briefings?
+## Estrutura final
+
+```
+handoffs/                 homes/
+  identidade.md             branding/.claude/agents/designer.md
+  artigo.md                 conteudo/.claude/agents/redator.md
+  politica.md               juridica/.claude/agents/advogado-politica.md
+  contrato.md               juridica/.claude/agents/advogado-contrato.md
+```
+
+Os artefatos `cliente`/`brand`/`briefing` de exemplo vivem em `workspace/`
+(não versionado). Para reproduzir: crie um `cliente`, um `brand` apontando
+para ele, e um ou mais `briefing` — com `brand` (brand-scoped) ou sem
+(client-level).

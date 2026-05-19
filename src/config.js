@@ -53,7 +53,7 @@ export const config = {
   // Paths relativos resolvem a partir da raiz do projeto.
   homes: (
     process.env.MESH_HOMES ??
-    './homes/ideia;./homes/texto;./homes/revisao;./homes/publicacao'
+    './homes/branding;./homes/conteudo;./homes/juridica'
   )
     .split(';')
     .map((s) => s.trim())

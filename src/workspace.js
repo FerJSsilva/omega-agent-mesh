@@ -1,13 +1,20 @@
-// Workspace: schema GraphQL de leitura inferido dos artefatos do disco.
+// Workspace: schema GraphQL de leitura inferido dos artefatos, servido do índice.
 //
 // O workspace é uma pasta compartilhada onde os agents salvam artefatos .md
-// com frontmatter YAML. Cada arquivo precisa de `id` e `type`. No boot, o mesh:
+// com frontmatter YAML. Cada arquivo precisa de `id` e `type`. Os .md são a
+// fonte da verdade; o índice SQLite (db.js) é um espelho descartável deles.
 //
-//   1. lê todos os workspace/**/*.md                        (loadFiles)
+// No boot, reindexWorkspace varre os .md para dentro do índice. Daí em diante:
+//
+//   1. lê os artefatos do índice SQLite                      (loadFiles)
 //   2. infere, por `type`, os campos e seus tipos GraphQL    (inferSchema)
 //   3. deduz relações reversas a partir das foreign keys     (inferReverseRelations)
 //   4. gera o SDL dos query types                           (generateSDL)
-//   5. gera os resolvers, que releem o disco a cada query    (buildResolvers)
+//   5. gera os resolvers, que consultam o índice a cada query (buildResolvers)
+//
+// O watcher (watcher.js) mantém o índice em dia: add/change/unlink de .md viram
+// upsert/delete no banco. A inferência (passos 2-4) é idêntica ao que era —
+// opera sobre a mesma lista de artefatos, só que vinda do índice em vez do disco.
 //
 // Regras de inferência:
 //   - Escalares detectados automaticamente (Int/Float/String/Boolean).
@@ -15,13 +22,14 @@
 //   - Relação reversa autogerada: se Chapter tem `book`, então Book ganha
 //     `chapters: [Chapter!]!` de graça.
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
+import { createHash } from 'node:crypto';
 import matter from 'gray-matter';
 import { config } from './config.js';
 
 const WORKSPACE_DIR = config.paths.workspace;
 
-// ── Leitura do disco ─────────────────────────────────────────────────────────
+// ── Indexação: .md do disco → índice SQLite ──────────────────────────────────
 
 // Caminho de todos os .md sob workspace/, recursivo. Pasta ausente → lista vazia.
 function walkRecursive(dir) {
@@ -38,22 +46,71 @@ function walkRecursive(dir) {
   return out;
 }
 
-// Lê um artefato do disco no momento da query — frontmatter + corpo.
-function readArtifact(path) {
-  const { data, content } = matter(readFileSync(path, 'utf8'));
-  return { ...data, body: content };
+// Path relativo a workspace/, sempre com barras / — é a chave do artefato no índice.
+function relPath(absPath) {
+  return relative(WORKSPACE_DIR, absPath).replace(/\\/g, '/');
 }
 
-// Carrega todos os artefatos do workspace, validando os campos obrigatórios.
-function loadFiles() {
-  const files = [];
-  for (const path of walkRecursive(WORKSPACE_DIR)) {
-    const { data, content } = matter(readFileSync(path, 'utf8'));
-    if (!data.id) throw new Error(`workspace: ${path} sem 'id' no frontmatter`);
-    if (!data.type) throw new Error(`workspace: ${path} sem 'type' no frontmatter`);
-    files.push({ path, frontmatter: data, body: content });
+function checksum(content) {
+  return createHash('md5').update(content).digest('hex');
+}
+
+// Indexa um único .md no banco. Valida `id`/`type`; arquivo malformado é PULADO
+// com aviso (não lança) — um throw aqui derrubaria o callback do watcher.
+// Insere os campos de frontmatter NA ORDEM DO YAML (Object.entries) — essa ordem
+// vira a ordem dos campos no SDL gerado; ver db.js #hydrate. Devolve o `type`
+// indexado, ou null se o arquivo foi pulado.
+export function indexArtifact(db, absPath) {
+  const raw = readFileSync(absPath, 'utf8');
+  const { data, content } = matter(raw);
+  const path = relPath(absPath);
+
+  if (!data.id || !data.type) {
+    console.warn(`[workspace] ${path}: sem 'id'/'type' no frontmatter — pulando`);
+    return null;
   }
-  return files;
+
+  const mtime = statSync(absPath).mtimeMs;
+  const artifactId = db.upsertArtifact(
+    path, data.id, data.type, content, mtime, checksum(raw),
+  );
+  db.clearFrontmatter(artifactId);
+  for (const [key, value] of Object.entries(data)) {
+    db.insertFrontmatter(artifactId, key, value);
+  }
+  return data.type;
+}
+
+// Remove um artefato do índice (o .md foi apagado).
+export function removeArtifact(db, absPath) {
+  db.deleteArtifactByPath(relPath(absPath));
+}
+
+// Reindexação completa: varre workspace/, reparseando só os .md cujo checksum
+// mudou (incremental), e remove do índice os que sumiram do disco. Chamado no
+// boot. Persiste o banco ao final.
+export function reindexWorkspace(db) {
+  const onDisk = walkRecursive(WORKSPACE_DIR);
+  const indexed = new Map(db.getAllArtifactRows().map((r) => [r.path, r]));
+
+  let added = 0;
+  let skipped = 0;
+  for (const absPath of onDisk) {
+    const path = relPath(absPath);
+    const row = indexed.get(path);
+    indexed.delete(path);
+    if (row && row.checksum === checksum(readFileSync(absPath, 'utf8'))) {
+      skipped += 1;
+      continue;
+    }
+    if (indexArtifact(db, absPath) !== null) added += 1;
+  }
+  // O que sobrou em `indexed` não existe mais no disco.
+  const removed = indexed.size;
+  for (const [path] of indexed) db.deleteArtifactByPath(path);
+
+  db.save();
+  return { added, skipped, removed };
 }
 
 // ── Inferência de tipos ──────────────────────────────────────────────────────
@@ -187,21 +244,16 @@ function generateSDL(typeFields, files, reverseRelations) {
 
 // ── Geração de resolvers ─────────────────────────────────────────────────────
 
-// Resolvers releem o disco a cada query — workspace é sempre fresh, sem cache.
-function buildResolvers(typeFields, reverseRelations) {
+// Resolvers consultam o índice SQLite a cada query. O índice é mantido em dia
+// pelo watcher — o workspace continua sempre fresh, sem releitura de disco.
+function buildResolvers(typeFields, reverseRelations, db) {
   const Query = {};
   const typeResolvers = {};
 
   for (const [type, fields] of typeFields) {
-    Query[type] = (_parent, { id }) =>
-      walkRecursive(WORKSPACE_DIR)
-        .map(readArtifact)
-        .find((o) => o.id === id && o.type === type) ?? null;
+    Query[type] = (_parent, { id }) => db.getArtifactByTypeAndId(type, id);
 
-    Query[`${type}s`] = () =>
-      walkRecursive(WORKSPACE_DIR)
-        .map(readArtifact)
-        .filter((o) => o.type === type);
+    Query[`${type}s`] = () => db.getArtifactsByType(type);
 
     const forType = {};
 
@@ -211,11 +263,7 @@ function buildResolvers(typeFields, reverseRelations) {
       forType[name] = (parent) => {
         const refId = parent[name];
         if (!refId) return null;
-        return (
-          walkRecursive(WORKSPACE_DIR)
-            .map(readArtifact)
-            .find((o) => o.id === refId && o.type === meta.fkType) ?? null
-        );
+        return db.getArtifactByTypeAndId(meta.fkType, refId);
       };
     }
 
@@ -224,9 +272,7 @@ function buildResolvers(typeFields, reverseRelations) {
       const reverseField = `${sourceType}s`;
       if (fields.has(reverseField)) continue;
       forType[reverseField] = (parent) =>
-        walkRecursive(WORKSPACE_DIR)
-          .map(readArtifact)
-          .filter((o) => o.type === sourceType && o[fieldName] === parent.id);
+        db.getArtifactsByType(sourceType).filter((o) => o[fieldName] === parent.id);
     }
 
     if (Object.keys(forType).length > 0) {
@@ -237,14 +283,30 @@ function buildResolvers(typeFields, reverseRelations) {
   return { Query, ...typeResolvers };
 }
 
-// Carrega tudo: arquivos, SDL inferido e resolvers.
-export function loadWorkspace() {
-  const files = loadFiles();
+// ── Carga do workspace ───────────────────────────────────────────────────────
+
+// Lê todos os artefatos do índice na forma { frontmatter, body } — a mesma
+// estrutura que a inferência sempre consumiu. Valida os obrigatórios
+// (defensivo: só artefatos válidos chegam a ser indexados, então é inalcançável).
+function loadFiles(db) {
+  const files = [];
+  for (const artifact of db.getAllArtifacts()) {
+    const { body, ...frontmatter } = artifact;
+    if (!frontmatter.id) throw new Error(`workspace: artefato sem 'id' no frontmatter`);
+    if (!frontmatter.type) throw new Error(`workspace: artefato sem 'type' no frontmatter`);
+    files.push({ frontmatter, body });
+  }
+  return files;
+}
+
+// Carrega tudo: artefatos do índice, SDL inferido e resolvers.
+export function loadWorkspace(db) {
+  const files = loadFiles(db);
   const typeFields = inferSchema(files);
   const reverseRelations = inferReverseRelations(typeFields);
   return {
     files,
     sdl: files.length > 0 ? generateSDL(typeFields, files, reverseRelations) : '',
-    resolvers: buildResolvers(typeFields, reverseRelations),
+    resolvers: buildResolvers(typeFields, reverseRelations, db),
   };
 }

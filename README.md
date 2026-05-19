@@ -54,6 +54,10 @@ GraphQL field**:
   `Ideia.textos: [Texto!]!` appears for free.
 - The walk is recursive — organize subfolders however you like.
 
+The `.md` files are indexed into a SQLite file (`mesh-index.db`) at boot;
+queries read from that index, and a watcher keeps it in sync as artifacts
+change. The markdown stays the source of truth — the index is disposable.
+
 ```graphql
 query { ideias { id tema textos { id palavras } } }
 ```
@@ -61,7 +65,7 @@ query { ideias { id tema textos { id palavras } } }
 ### 3. Job — the handoff record
 
 Every mutation creates a `Job`. Lifecycle: `PENDENTE → PRONTO / ERRO`. Jobs
-persist in `jobs.json` and survive restarts.
+persist in the `jobs` table of `mesh-index.db` and survive restarts.
 
 ```graphql
 query { job(id: "uuid") { status durationMs exitCode } }
@@ -93,8 +97,9 @@ frees up.
 
 - Node.js 20.18+ (ESM)
 - Apollo Server 5 (`startStandaloneServer`)
+- `sql.js` — SQLite index (workspace + jobs), pure JS/WASM
 - `gray-matter` — frontmatter parsing
-- `chokidar` — workspace watcher (opt-in)
+- `chokidar` — workspace watcher + index sync
 - `p-queue` — concurrency limiting
 
 ## Running
@@ -124,23 +129,24 @@ to `.env` to override. See [`.env.example`](.env.example) for the full list
 omega-agent-mesh/
   src/
     config.js       env vars + project paths (single source of truth)
-    index.js        bootstrap: assemble schema, start server + watcher
+    index.js        bootstrap: open index, reindex, assemble schema, serve
     schema.js       merges base + workspace + handoffs into one schema
     schema.graphql  base SDL skeleton
     resolvers.js    static Query/Mutation resolvers
+    db.js           SQLite index (sql.js): workspace artifacts + jobs
     agents.js       agent discovery + registry + loader
     skills.js       skill catalog + semver sync to homes
-    jobs.js         Job lifecycle + jobs.json persistence
+    jobs.js         Job lifecycle, backed by the jobs table
     spawn.js        claude CLI spawn + concurrency queue + logs
     handoffs.js     handoffs/*.md → generated mutations
-    workspace.js    workspace/**/*.md → inferred query types
-    watcher.js      chokidar pipeline triggers
+    workspace.js    .md → SQLite index → inferred query types
+    watcher.js      chokidar index sync + pipeline triggers
   handoffs/         declared routes (auto-generated mutations)
   homes/            .claude/agents/*.md per namespace (demo)
   skills/           skills synced into the homes
   workspace/        (gitignored) artifacts produced by agents at runtime
   logs/             (gitignored) per-spawn raw + json logs
-  jobs.json         (gitignored) Job state
+  mesh-index.db     (gitignored) SQLite index — workspace + jobs
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the module-by-module

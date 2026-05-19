@@ -17,6 +17,7 @@
     "graphql": "^16.9.0",
     "graphql-tag": "^2.12.6",
     "gray-matter": "^4.0.3",
-    "p-queue": "^9.2.0"
+    "p-queue": "^9.2.0",
+    "sql.js": "^1.14.1"
   }
 }

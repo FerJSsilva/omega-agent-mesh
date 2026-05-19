@@ -5,6 +5,10 @@ node_modules/
 logs/
 jobs.json
 
+# Índice SQLite — descartável, regenerável dos .md (a tabela jobs sobrevive nele).
+mesh-index.db
+mesh-index.db-journal
+
 # Artefatos produzidos pelos agents em runtime (a pasta fica versionada via .gitkeep).
 workspace/*
 !workspace/.gitkeep

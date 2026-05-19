@@ -28,6 +28,9 @@ export const config = {
     workspace: join(ROOT, 'workspace'),
     logs:      join(ROOT, 'logs'),
     jobsFile:  join(ROOT, 'jobs.json'),
+    // Índice SQLite (sql.js): artefatos do workspace + estado dos jobs.
+    // Descartável — regenerável dos .md, exceto a tabela jobs.
+    dbFile:    join(ROOT, process.env.MESH_DB_FILE ?? 'mesh-index.db'),
   },
 
   // Agents rodam com sessão persistente, salvo MESH_SESSION_PERSISTENCE=false.

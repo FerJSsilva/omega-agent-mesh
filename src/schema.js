@@ -14,9 +14,9 @@ import { resolvers as staticResolvers } from './resolvers.js';
 import { loadHandoffsModule } from './handoffs.js';
 import { loadWorkspace } from './workspace.js';
 
-export function buildSchema() {
+export function buildSchema(db) {
   const baseSDL = readFileSync(config.paths.schema, 'utf8');
-  const workspace = loadWorkspace();
+  const workspace = loadWorkspace(db);
   const handoffs = loadHandoffsModule();
 
   // Concatena os SDLs. Partes vazias são omitidas — `extend type` sem alvo,

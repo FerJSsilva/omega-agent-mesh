@@ -1,34 +1,51 @@
-// Estado dos jobs: registro em memória + persistência em jobs.json.
+// Estado dos jobs: registro em memória + persistência no índice SQLite.
 //
 // Cada mutation de handoff cria um Job (id, caller, callee, status...). Quando
-// o spawn correspondente termina, o Job é atualizado e o arquivo re-serializado.
-// jobs.json sobrevive a restarts do servidor.
+// o spawn correspondente termina, o Job é atualizado. O estado sobrevive a
+// restarts do servidor — agora na tabela `jobs` do índice, não mais em jobs.json.
 //
-// Escritas concorrentes (vários spawns terminando juntos) são serializadas por
-// uma cadeia de Promises — evita corrupção do arquivo por escritas sobrepostas.
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+// A tabela é atrás de um cache em memória (Map): getJob/listJobs precisam ser
+// SÍNCRONOS (resolvers.js faz listJobs().sort(...)). O Map é o caminho de
+// leitura; o SQLite é a durabilidade. createJob/completeJob escrevem nos dois.
+//
+// Não há mais cadeia de Promises: cada escrita é Map → db.run → db.save(), tudo
+// síncrono no event loop — dois spawns terminando "juntos" rodam seus
+// completeJob em sequência, sem intercalar. Sem corrupção, sem cadeia.
+import { readFileSync, existsSync } from 'node:fs';
 import { config } from './config.js';
 
-const JOBS_FILE = config.paths.jobsFile;
+// Cache em memória. Hidratado uma vez em setJobsDb a partir do banco.
+const jobs = new Map();
 
-// Carrega o estado anterior do disco, ou começa vazio.
-function load() {
-  if (!existsSync(JOBS_FILE)) return new Map();
-  try {
-    return new Map(Object.entries(JSON.parse(readFileSync(JOBS_FILE, 'utf8'))));
-  } catch {
-    return new Map();
-  }
+// O índice SQLite. jobs.js não pode `await db.init()` no import (spawn.js o
+// importa de forma síncrona) — então o index.js injeta o db pronto via setJobsDb.
+let db = null;
+
+// Liga o módulo ao índice. Chamado no boot, depois de db.init() e antes do
+// servidor subir — então nenhuma mutation roda antes disto. Hidrata o cache e
+// migra um jobs.json legado, se houver.
+export function setJobsDb(database) {
+  db = database;
+  migrateLegacyJobsFile();
+  for (const job of db.getAllJobs()) jobs.set(job.id, job);
 }
 
-const jobs = load();
-
-// Âncora da cadeia de escritas. Cada persist() encadeia a próxima gravação.
-let writeChain = Promise.resolve();
-function persist() {
-  writeChain = writeChain.then(() =>
-    writeFileSync(JOBS_FILE, JSON.stringify(Object.fromEntries(jobs), null, 2)),
-  );
+// Migração única: se a tabela jobs está vazia e existe um jobs.json antigo,
+// importa o histórico. jobs.json é deixado no disco como rede de segurança.
+function migrateLegacyJobsFile() {
+  if (db.countJobs() > 0) return;
+  if (!existsSync(config.paths.jobsFile)) return;
+  try {
+    const legacy = JSON.parse(readFileSync(config.paths.jobsFile, 'utf8'));
+    const entries = Object.values(legacy);
+    for (const job of entries) db.insertJob(job);
+    if (entries.length > 0) {
+      db.save();
+      console.log(`[jobs] migrados ${entries.length} job(s) de jobs.json`);
+    }
+  } catch {
+    /* jobs.json corrompido — ignora, começa limpo */
+  }
 }
 
 // Cria um Job no estado PENDENTE. Chamado de forma síncrona pela mutation,
@@ -45,7 +62,8 @@ export function createJob({ id, caller, callee }) {
     exitCode: null,
   };
   jobs.set(id, job);
-  persist();
+  db.insertJob(job);
+  db.save();
   return job;
 }
 
@@ -59,7 +77,8 @@ export function completeJob(id, { exitCode }) {
   job.exitCode = exitCode;
   job.status = exitCode === 0 ? 'PRONTO' : 'ERRO';
   jobs.set(id, job);
-  persist();
+  db.updateJob(job);
+  db.save();
   return job;
 }
 

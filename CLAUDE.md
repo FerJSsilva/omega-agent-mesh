@@ -22,7 +22,10 @@ mesh exposes itself as a live, browsable GraphQL schema.
 - **Fire-and-forget.** A mutation returns a `Job` (UUID + `PENDENTE`)
   immediately. Real status is polled via `Query.job(id)` / `Query.jobs`.
 - **Bounded concurrency.** A queue caps spawns at `MESH_MAX_CONCURRENCY`.
-- **Minimal persistence.** Only `jobs.json`. Logs are evidence, not state.
+- **One SQLite index.** `mesh-index.db` (via `sql.js`) holds the workspace
+  index and the `jobs` table. Markdown is the source of truth — the index is a
+  disposable mirror, rebuilt from the `.md` on boot. The `jobs` table is the
+  exception: it is real state, not derivable from markdown. Logs are evidence.
 - **`config.js` is the single source of truth** for env vars and paths. Never
   read `process.env` or build paths anywhere else — import `config`.
 
@@ -60,8 +63,10 @@ Both modes coexist in the same mesh.
 - **Do not change `src/schema.graphql` lightly.** It is only the skeleton —
   mutations and query types are generated. The base affects `Job`, `Agent`,
   `Handoff`, `Skill` — discuss first.
-- **Do not add persistence beyond `jobs.json`** (SQLite/Redis/etc.) without
-  asking whether the pain justifies it.
+- **The SQLite index is the persistence layer.** Do not add a second store
+  (Redis/Postgres/etc.) without asking whether the pain justifies it. Workspace
+  artifacts in the index are disposable — never treat the `.db` as authoritative
+  over the `.md` files.
 
 ## Where to look first
 
@@ -73,5 +78,6 @@ Both modes coexist in the same mesh.
 | Which agents exist? | `homes/*/.claude/agents/*.md` or `Query.agents` |
 | Which skills exist? | `skills/*/SKILL.md` or `Query.skills` |
 | What happened in a spawn? | `logs/<ts>_<caller>__<callee>.json` |
-| What is a Job's state? | `jobs.json` or `Query.jobs` |
+| What is a Job's state? | `Query.jobs` (backed by `mesh-index.db`) |
+| How is the workspace indexed? | `src/db.js` + `src/workspace.js` |
 | The final merged schema? | introspection via Apollo Sandbox |

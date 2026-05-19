@@ -21,7 +21,12 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { config } from './config.js';
 import { spawnAgent } from './spawn.js';
-import { artifactTemplate, namingInstruction, fkInstruction } from './handoffs.js';
+import {
+  artifactTemplate,
+  namingInstruction,
+  frontmatterInstruction,
+  fkInstruction,
+} from './handoffs.js';
 import { indexArtifact, removeArtifact } from './workspace.js';
 
 const WORKSPACE = config.paths.workspace;
@@ -79,6 +84,7 @@ function fireTrigger(triggers, filePath) {
   if (route.type) {
     promptLines.push('', namingInstruction(route.type));
   }
+  promptLines.push('', frontmatterInstruction());
   const fk = fkInstruction(route.arg, route.template);
   if (fk) promptLines.push('', fk);
 

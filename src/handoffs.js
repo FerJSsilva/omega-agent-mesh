@@ -59,6 +59,19 @@ export function namingInstruction(type) {
   );
 }
 
+// Instrução de YAML válido no frontmatter. Agents tendem a escrever valores de
+// string sem aspas — e um `:` no meio do valor (ex.: `titulo: Café: a pausa`)
+// quebra o parser YAML, fazendo o artefato ser pulado na indexação. Manda o
+// agent citar com aspas duplas todo valor de string do frontmatter.
+export function frontmatterInstruction() {
+  return (
+    'No frontmatter YAML, todo valor de campo que seja texto DEVE estar entre ' +
+    'aspas duplas — ex.: `titulo: "O Café: uma pausa"`. Sem aspas, um `:`, `#` ' +
+    'ou `[` dentro do valor quebra o parser e o artefato é descartado. Não ' +
+    'cite números, booleanos nem listas — apenas strings.'
+  );
+}
+
 // Instrução de preenchimento da foreign key. Quando o handoff recebe um caminho
 // de arquivo (`arg` terminado em "Path") e o template do artefato tem um campo
 // de FK com o nome correspondente (ideiaPath → ideia), manda o agent copiar o
@@ -181,6 +194,7 @@ function buildResolvers(handoffs) {
           promptParts.push('', namingInstruction(a.type));
         }
         if (outputTemplate) {
+          promptParts.push('', frontmatterInstruction());
           const fk = fkInstruction(a.arg, outputTemplate.template);
           if (fk) promptParts.push('', fk);
         }
